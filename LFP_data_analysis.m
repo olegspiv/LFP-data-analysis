@@ -1,252 +1,263 @@
-%% Adjust plot settings
-secs_to_plot = 10;
-
-% color limits for the upper plot
-clim1 = -50;
-clim2 = 6500;
-
-% color limits for the lower plot
-clim3 = -50;
-clim4 = 3000;
-
-% set 1 for logarhithic scale
-lg = 1;
-
-%%
-addpath('path/to/the/fieldtrip') % path to the fieldtrip tool
-adir =  dir('your_data*.mat'); % path to the .mat file containing your recorded data
-signals = {'ch1','ch2'};
-
-for j =1:numel(adir)
-    rec=load(adir(j).name);
-    fnames = fields(rec);
-    if numel(signals)==2
-        s1 = eval(['rec.' fnames{1,1}]);
-        s2 = eval(['rec.' fnames{2,1}]);
-    end
-end
-
-ch1_data = s1.values;
-ch2_data = s2.values;
-
-if length(ch1_data) == length(ch2_data)
-    all(1,:) = ch1_data;
-    all(2,:) = ch2_data;
-elseif length(ch1_data) > length(ch2_data)
-    all(1,:) = ch1_data(1:length(ch2_data));
-    all(2,:) = ch2_data(1:length(ch2_data));
-elseif length(ch1_data) < length(ch2_data)
-    all(1,:) = ch1_data(1:length(ch1_data));
-    all(2,:) = ch2_data(1:length(ch1_data));
-end
-
-info = 'Resting state LFP recordings';
-fsample = 256;
-freq = 45;
-channel_names = {'ch1', 'ch2'};
-data.trial{1} = all;
-data.time{1} = linspace(0,length(all)/fsample,length(all));
-data.label = channel_names;
-data.fsample = fsample;
-data.addition_info = info;
-
-ft_defaults
-
-% segment data
-cfg = [];
-cfg.length = 60; % create segments of 60 seconds each
-cfg.overlap = 0; % 0.5
-data_segmented = ft_redefinetrial(cfg, data);
-
-% preprocess data
-cfg = [];
-cfg.demean     = 'yes'; % 'no' or 'yes', whether to apply baseline correction (default = 'no')
-cfg.lpfilter   = 'yes'; % 'no' or 'yes'  lowpass filter (default = 'no')
-cfg.lpfreq     =  freq; % lowpass  frequency in Hz
-cfg.hpfilter   = 'yes'; % 'no' or 'yes'  highpass filter (default = 'no')
-cfg.hpfreq     = .5; % highpass frequency in Hz
-cfg.bsfilter   = 'yes'; % 'no' or 'yes'  bandstop filter (default = 'no')
-cfg.bsfreq     = [49 51]; %  bandstop frequency range, specified as [low high] in Hz (or as Nx2 matrix for notch filter)
-data_filtered = ft_preprocessing(cfg,data_segmented);
-
-% to create the time-frequency plot
-cfg              = [];
-cfg.output       = 'pow';
-cfg.channel      = 'all';
-cfg.method       = 'mtmconvol';
-cfg.taper        = 'hanning';
-cfg.foi          = 1:2:freq;                       % analysis 2 to 45 Hz in steps of 2 Hz
-cfg.t_ftimwin    = ones(length(cfg.foi),1).*0.5;   % length of time window = 0.5 sec
-cfg.toi          = 'all';
-tfr = ft_freqanalysis(cfg,data_filtered);
-
-
-%% Plotting using the Matlab tool
-clear a b a1 b1 data1 powerLFPs data_filtered1 data_segmented1 data_cut
-figure
-smpl = 1;
-kama = 0;
-
-cfg               = [];
-cfg.baselinetype  = 'db';
-cfg.pad           = 'nextpow2';
-tfrbl = ft_freqbaseline(cfg, tfr);
-
-tick10 = length(tfrbl.freq)*10/freq;
-
-% extract spectrogramm of channel 1
-chanindx1 = find(strcmp(tfrbl.label, 'ch1'));
-a1 = squeeze(tfrbl.powspctrm(chanindx1,:,:));
-b1 = a1;
-
-% extract spectrogramm of channel 2
-chanindx2 = find(strcmp(tfrbl.label, 'ch2'));
-a2 = squeeze(tfrbl.powspctrm(chanindx2,:,:));
-b2 = a2;
-
-
-%
-while smpl + fsample*secs_to_plot < length (all)
-    kama = kama + secs_to_plot;
-
-    axes('Position',[0.0605461908617263 0.75534188034188 0.29205797580494 0.194798534798553]);
-    d = ch1_data(smpl:smpl + fsample*secs_to_plot);
-    plot(d)
-
-    xlim([0 length(d)])
-    ylabel('Raw LFP [microV] MCx')
-    set(gca,'xtick',[]);
-    set(gca,'xcolor',[1 1 1])
-    box off
-    clear d
-
-    axes('Position',[0.0587232741950595 0.465277777777777 0.29205797580494 0.194798534798552]);
-    d = ch2_data(smpl:smpl + fsample*secs_to_plot);
-    plot(d)
-
-    xlim([0 length(d)])
-    ylabel('Raw LFP [microV] STN')
-    xlabel('Time [s]')
-    box off
-
-    ax = gca;
-    ax.XTick = 0:fsample:fsample*secs_to_plot;
-    ax.XTickLabel = [0:1:secs_to_plot];
-    clear d
-
-    axes('Position',[0.424869107528393 0.749732905982906 0.29205797580494 0.194798534798553]);
-
-    imagesc(b1, [clim3, clim4]);
-    xlim([smpl (smpl + fsample*secs_to_plot)])
-
-    ax = gca;
-    ax.YDir = 'normal';
-    ax.YTick = tick10:tick10:length(tfrbl.freq);
-    ax.YTickLabel = [10:10:40];
-    set(gca,'xtick',[]);
-    set(gca,'xcolor',[1 1 1])
-
-    ylabel('Frequency [Hz]')
-    colorbar
-    if lg == 1
-        set(gca,'ColorScale','log')
+classdef LFPDataAnalysis
+    properties
+        % Duration of plot in seconds
+        secs_to_plot = 10;
+        % Lower limit for spectrogram of channel 2
+        clim1 = -50;
+        % Upper limit for spectrogram of channel 2
+        clim2 = 6500;
+        % Lower limit for spectrogram of channel 1
+        clim3 = -50;
+        % Upper limit for spectrogram of channel 1
+        clim4 = 3000;
+        % Use logarithmic scale if true
+        lg = true;
+        % Path to FieldTrip toolbox
+        fieldtrip_path = 'path/to/the/fieldtrip';
+        % Path to data containing .mat file
+        data_source = 'your_data*.mat';
+        % Names of channels to process
+        signals = {'ch1', 'ch2'};
+        % Sampling frequency in Hz
+        fsample_hz = 256;
+        % Maximum frequency for analysis in Hz
+        freq_hz = 45;
+        % Names of the channels
+        channel_names = {'ch1', 'ch2'};
+        % Description of the data
+        info = 'Resting state LFP recordings';
+        % Length of data segments in seconds
+        segment_length_s = 60;
+        % Overlap between data segments (fraction)
+        overlap = 0;
+        % High-pass filter cutoff frequency in Hz
+        hp_cutoff_hz = 0.5;
+        % Low-pass filter cutoff frequency in Hz
+        lp_cutoff_hz = 45;
+        % Bandstop filter frequency range in Hz
+        bs_freq_hz = [49, 51];
+        % Spectral analysis window length in seconds
+        spectral_window_s = 0.5;
+        % Smoothing frequency for spectral analysis in Hz
+        smoothing_frequency_hz = 1;
+        % Frequency range for power analysis in Hz
+        power_frequency_range_hz = 1:1:45;
+        % Lower limit for x-axis in spectrogram plots
+        spectrogram_xlim_low_hz = 0;
+        % Upper limit for x-axis in spectrogram plots
+        spectrogram_xlim_high_hz = 45;
     end
 
-    axes('Position',[0.423046190861726 0.459668803418801 0.296224642471607 0.194798534798552]);
-
-    imagesc(b2,[clim1, clim2]);
-    xlim([smpl (smpl + fsample*secs_to_plot)])
-
-    ax = gca;
-    ax.YDir = 'normal';
-    ax.XTick = smpl:fsample:smpl + fsample*secs_to_plot;
-    ax.XTickLabel = 0:1:secs_to_plot;
-
-    ax.YTick = tick10:tick10:length(tfrbl.freq);
-    ax.YTickLabel = [10:10:40];
-
-    ylabel('Frequency [Hz]')
-    xlabel('Time [s]')
-    colorbar
-    if lg == 1
-        set(gca,'ColorScale','log')
+    properties (Access = protected)
+        % Processed data structure
+        data;
+        % Combined data from all channels
+        combined_data;
+        % Data from channel 1
+        ch1_data;
+        % Data from channel 2
+        ch2_data;
     end
 
-    data_cut(1,:) = all(1,smpl:secs_to_plot*fsample+smpl);
-    data_cut(2,:) = all(2,smpl:secs_to_plot*fsample+smpl);
+    methods (Access = public)
+        function obj = LFPDataAnalysis()
+            addpath(obj.fieldtrip_path);
+            obj = obj.loadData();
+        end
 
-    data1.trial{1} = data_cut; %double(rawdata');
-    data1.time{1} = linspace(0,length(data_cut)/fsample,length(data_cut));
-    data1.label = channel_names;
-    data1.fsample = fsample;
-    data1.addition_info = info;
+        function obj = preprocessData(obj)
+            ft_defaults;
 
-    % segment data
-    cfg = [];
-    cfg.length = 1; % create segments of 1 seconds each
-    cfg.overlap = 0; % 0.5
-    data_segmented1 = ft_redefinetrial(cfg, data1);
+            % Segment data
+            cfg = [];
+            cfg.length = obj.segment_length_s;
+            cfg.overlap = obj.overlap;
+            data_segmented = ft_redefinetrial(cfg, obj.data);
 
-    % preprocess data
-    cfg = [];
-    cfg.demean     = 'yes'; % 'no' or 'yes', whether to apply baseline correction (default = 'no')
-    cfg.lpfilter   = 'yes'; % 'no' or 'yes'  lowpass filter (default = 'no')
-    cfg.lpfreq     =  freq; % lowpass  frequency in Hz
-    cfg.hpfilter   = 'yes'; % 'no' or 'yes'  highpass filter (default = 'no')
-    cfg.hpfreq     = .5; % highpass frequency in Hz
-    cfg.bsfilter   = 'yes'; % 'no' or 'yes'  bandstop filter (default = 'no')
-    cfg.bsfreq     = [49 51]; %  bandstop frequency range, specified as [low high] in Hz (or as Nx2 matrix for notch filter)
-    data_filtered1 = ft_preprocessing(cfg,data_segmented1);
+            % Preprocess data
+            cfg = [];
+            cfg.demean = 'yes';
+            cfg.lpfilter = 'yes';
+            cfg.lpfreq = obj.lp_cutoff_hz;
+            cfg.hpfilter = 'yes';
+            cfg.hpfreq = obj.hp_cutoff_hz;
+            cfg.bsfilter = 'yes';
+            cfg.bsfreq = obj.bs_freq_hz;
+            data_filtered = ft_preprocessing(cfg, data_segmented);
 
-    %spectral analysis
-    cfg = [];
-    cfg.channel = 'all';
-    cfg.method    = 'mtmfft';
-    cfg.tapsmofrq = 1; %  the amount of spectral smoothing through multi-tapering.
-    cfg.output    = 'pow'; %  return the power-spectra
-    cfg.taper     = 'dpss'; % discrete prolate spheroidal sequences
-    cfg.foi       = 1:1:freq;
-    cfg.keeptrials='no'; % return individual trials or average (default = 'no')
-    cfg.polyremoval = -1; % no demeaning
-    powerLFPs= ft_freqanalysis(cfg, data_filtered1);
+            % Time-frequency analysis
+            cfg = [];
+            cfg.output = 'pow';
+            cfg.channel = 'all';
+            cfg.method = 'mtmconvol';
+            cfg.taper = 'hanning';
+            cfg.foi = 1:2:obj.freq_hz;
+            cfg.t_ftimwin = ones(length(cfg.foi), 1) .* obj.spectral_window_s;
+            cfg.toi = 'all';
+            tfr = ft_freqanalysis(cfg, data_filtered);
 
-    axes('Position',[0.806900357528391 0.747329059829059 0.133724642471608 0.194798534798553]);
-    % plot (powerLFPs.powspctrm(1,:)./max(powerLFPs.powspctrm(1,:)))
-    plot (powerLFPs.powspctrm(1,:))
-    ylabel('Relative Power')
-    xlim([0 45])
-    % grid on
-    % set(gca, 'YScale', 'log')
+            obj.plotData(tfr);
+        end
 
-    axes('Position',[0.807160774195055 0.457532051282049 0.133724642471608 0.194798534798552]);
-    % plot (powerLFPs.powspctrm(2,:)./max(powerLFPs.powspctrm(2,:)))
-    plot (powerLFPs.powspctrm(2,:))
-    xlabel('Frequency (Hz)'),ylabel('Relative Power')
-    xlim([0 45])
-    % set(gca, 'YScale', 'log')
+        function plotData(obj, tfr)
+            cfg = [];
+            cfg.baselinetype = 'db';
+            cfg.pad = 'nextpow2';
+            tfrbl = ft_freqbaseline(cfg, tfr);
 
-    annotation('textbox',...
-        [0.470442708333331 0.155982905982906 0.181249999999997 0.0871410256410256],...
-        'String',['Progress: ' num2str(kama) ' out of ' num2str(round(length(all)/256))],...
-        'LineStyle','none',...
-        'FontSize',18,...
-        'FitBoxToText','off');
+            tick_spacing = length(tfrbl.freq) * 10 / obj.freq_hz;
 
-    smpl = smpl + fsample*secs_to_plot;
+            % Extract spectrograms
+            channel1_spectrogram = squeeze(tfrbl.powspctrm(find(strcmp(tfrbl.label, 'ch1')), :, :));
+            channel2_spectrogram = squeeze(tfrbl.powspctrm(find(strcmp(tfrbl.label, 'ch2')), :, :));
 
-    while 1
-        c = input('proceed to the next (1) or change the scale (2)? ');
-        if c == 1
-            clf
-            break
-        elseif c == 2
+            smpl = 1;
+            progress = 0;
 
-            p = ginput(1);
-            ylim ([0 p(2)])
-            clear p
+            while smpl + obj.fsample_hz * obj.secs_to_plot < length(obj.combined_data)
+                progress = progress + obj.secs_to_plot;
+
+                figure;
+                % Plot for Channel 1
+                obj.plotChannel(1, smpl, channel1_spectrogram, tick_spacing);
+
+                % Plot for Channel 2
+                obj.plotChannel(2, smpl, channel2_spectrogram, tick_spacing);
+
+                % Add annotation
+                annotation('textbox', [0.47, 0.16, 0.18, 0.08], ...
+                    'String', ['Progress: ' num2str(progress) ' out of ' num2str(round(length(obj.combined_data) / obj.fsample_hz))], ...
+                    'LineStyle', 'none', 'FontSize', 18, 'FitBoxToText', 'off');
+
+                % Interactive user input for proceeding or changing scale
+                while true
+                    c = input('Proceed to the next (1) or change the scale (2)? ');
+                    if c == 1
+                        clf;
+                        break;
+                    elseif c == 2
+                        p = ginput(1);
+                        ylim([0 p(2)]);
+                        clear p;
+                    end
+                end
+
+                smpl = smpl + obj.fsample_hz * obj.secs_to_plot;
+            end
+
+            close all;
         end
     end
 
-    clear data1 powerLFPs data_filtered1 data_segmented1 data_cut
+    methods (Access = protected)
+        function obj = loadData(obj)
+            adir = dir(obj.data_source);
+
+            for j = 1:numel(adir)
+                rec = load(adir(j).name);
+                fnames = fields(rec);
+
+                if numel(obj.signals) == 2
+                    s1 = eval(['rec.' fnames{1}]);
+                    s2 = eval(['rec.' fnames{2}]);
+                end
+            end
+
+            obj.ch1_data = s1.values;
+            obj.ch2_data = s2.values;
+
+            if length(obj.ch1_data) == length(obj.ch2_data)
+                obj.combined_data(1, :) = obj.ch1_data;
+                obj.combined_data(2, :) = obj.ch2_data;
+            elseif length(obj.ch1_data) > length(obj.ch2_data)
+                obj.combined_data(1, :) = obj.ch1_data(1:length(obj.ch2_data));
+                obj.combined_data(2, :) = obj.ch2_data;
+            else
+                obj.combined_data(1, :) = obj.ch1_data;
+                obj.combined_data(2, :) = obj.ch2_data(1:length(obj.ch1_data));
+            end
+
+            obj.data.trial{1} = obj.combined_data;
+            obj.data.time{1} = linspace(0, length(obj.combined_data) / obj.fsample_hz, length(obj.combined_data));
+            obj.data.label = obj.channel_names;
+            obj.data.fsample = obj.fsample_hz;
+            obj.data.addition_info = obj.info;
+        end
+
+        function powerLFPs = performSpectralPowerAnalysis(obj, data_cut)
+            data1.trial{1} = data_cut;
+            data1.time{1} = linspace(0, length(data_cut) / obj.fsample_hz, length(data_cut));
+            data1.label = obj.channel_names;
+            data1.fsample = obj.fsample_hz;
+            data1.addition_info = obj.info;
+
+            cfg = [];
+            cfg.length = 1;
+            cfg.overlap = obj.overlap;
+            data_segmented1 = ft_redefinetrial(cfg, data1);
+
+            cfg = [];
+            cfg.demean = 'yes';
+            cfg.lpfilter = 'yes';
+            cfg.lpfreq = obj.lp_cutoff_hz;
+            cfg.hpfilter = 'yes';
+            cfg.hpfreq = obj.hp_cutoff_hz;
+            cfg.bsfilter = 'yes';
+            cfg.bsfreq = obj.bs_freq_hz;
+            data_filtered1 = ft_preprocessing(cfg, data_segmented1);
+
+            cfg = [];
+            cfg.channel = 'all';
+            cfg.method = 'mtmfft';
+            cfg.tapsmofrq = obj.smoothing_frequency_hz;
+            cfg.output = 'pow';
+            cfg.taper = 'dpss';
+            cfg.foi = obj.power_frequency_range_hz;
+            cfg.keeptrials = 'no';
+            cfg.polyremoval = -1;
+            powerLFPs = ft_freqanalysis(cfg, data_filtered1);
+        end
+
+        function plotChannel(obj, channelIdx, smpl, spectrogram_data, tick_spacing)
+            % Plot raw data
+            subplot(2, 3, (channelIdx - 1) * 3 + 1);
+            d = obj.combined_data(channelIdx, smpl:smpl + obj.fsample_hz * obj.secs_to_plot);
+            plot(d);
+            xlim([0 length(d)]);
+            ylabel(['Raw LFP [microV] ', obj.channel_names{channelIdx}]);
+            if channelIdx == 2
+                xlabel('Time [s]');
+            end
+            box off;
+
+            % Plot time-frequency representation
+            subplot(2, 3, (channelIdx - 1) * 3 + 2);
+            imagesc(spectrogram_data, [obj.(['clim', num2str(channelIdx)])]);
+            xlim([smpl (smpl + obj.fsample_hz * obj.secs_to_plot)]);
+            ylabel('Frequency [Hz]');
+            ax = gca;
+            ax.YDir = 'normal';
+            ax.YTick = tick_spacing:tick_spacing:length(spectrogram_data);
+            ax.YTickLabel = 10:10:obj.freq_hz;
+            colorbar;
+            if obj.lg
+                set(gca, 'ColorScale', 'log');
+            end
+            if channelIdx == 2
+                xlabel('Time [s]');
+            end
+
+            % Plot relative power
+            subplot(2, 3, (channelIdx - 1) * 3 + 3);
+            data_cut = obj.combined_data(channelIdx, smpl:obj.secs_to_plot * obj.fsample_hz + smpl);
+            powerLFPs = obj.performSpectralPowerAnalysis(data_cut);
+            plot(powerLFPs.powspctrm(1, :));
+            xlim([obj.spectrogram_xlim_low_hz obj.spectrogram_xlim_high_hz]);
+            ylabel('Relative Power');
+            if channelIdx == 2
+                xlabel('Frequency (Hz)');
+            end
+        end
+    end
 end
-close all
+
