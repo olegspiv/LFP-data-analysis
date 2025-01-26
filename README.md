@@ -33,18 +33,21 @@ The `LFPDataAnalysis` MATLAB class provides functionality to preprocess, analyze
 Create an instance of the `LFPDataAnalysis` class:
 ```matlab
 lfp = LFPDataAnalysis();
+```
 
 ### 2. Preprocessing Data
 Preprocess the data using the preprocessData method:
 ```matlab
 lfp = lfp.preprocessData();
+```
 
 ### 3. Visualization
 Visualize the data using the plotData method:
 ```matlab
 lfp.plotData();
+```
 
-## Proeprties
+## Properties
 
 ### Public Properties
 - secs_to_plot: Duration of plot in seconds.
