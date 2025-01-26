@@ -2,12 +2,12 @@
 # LFP Analysis Toolbox
 
 ## Overview
-The `LFP_data_analysis.m` script is a MATLAB-based tool designed for the preprocessing, analysis, and visualization of Local Field Potential (LFP) recordings. It leverages the FieldTrip toolbox to process multi-channel LFP data and provides interactive visualization features to facilitate neuroscience research.
+The `LFPDataAnalysis` MATLAB class provides functionality to preprocess, analyze, and visualize Local Field Potential (LFP) data. The class supports operations such as segmentation, filtering, spectral analysis, and time-frequency plotting for multiple channels. It leverages the FieldTrip toolbox to process multi-channel LFP data and provides interactive visualization features to facilitate neuroscience research.
 
 ## Features
-- **Data Loading and Synchronization**:
-  - Loads LFP data from `.mat` files.
-  - Ensures channel length consistency by truncating longer signals.
+- **Data Preprocessing**:
+  - Segments the data into defined lengths.
+  - Applies high-pass, low-pass, and band-stop filtering.
 
 - **FieldTrip Integration**:
   - Converts raw LFP data into FieldTrip-compatible format.
@@ -18,43 +18,72 @@ The `LFP_data_analysis.m` script is a MATLAB-based tool designed for the preproc
   - Incorporates spectral smoothing and bandstop filtering.
 
 - **Interactive Visualization**:
-  - Plots raw LFP signals and spectrograms for each channel.
-  - Allows interactive adjustment of visualization scales.
-  - Tracks analysis progress and displays annotations.
+  - Plots raw data, time-frequency spectrograms, and relative power for each channel.
+  - Includes interactive functionality to adjust scale and navigate through data.
 
 ## Requirements
-- MATLAB (R2017b or newer recommended).
-- FieldTrip toolbox (version 2017-06-18 or compatible).
+- **MATLAB** (R2017b or newer recommended).
+- **FieldTrip toolbox** (version 2017-06-18 or compatible).
+- **Input Data**: The class expects `.mat` files containing channel data with fields corresponding to the `signals` property.
 
-## How to Use
-1. Place the script and the required `.mat` files in the same directory.
-2. Update the following parameters in the script as needed:
-   - `secs_to_plot`: Number of seconds to display per segment.
-   - `clim1`, `clim2`, `clim3`, `clim4`: Color limits for raw and frequency plots.
-   - `lg`: Set to 1 to use logarithmic scaling for spectrograms.
-3. Add the FieldTrip toolbox to the MATLAB path.
-4. Run the script in MATLAB.
-5. Follow the prompts to:
-   - Navigate through data segments.
-   - Adjust visualization scales interactively.
 
-## Outputs
-- **Raw LFP Plots**: Displays microvolt signals over time for each channel.
-- **Spectrograms**: Visualizes frequency power over time for both channels.
-- **Power Spectral Density (PSD)**: Plots relative power across frequencies.
+## Usage
 
-## Example Data
-The script is compatible with `.mat` files containing LFP recordings. Each file should include `values` fields representing the signal data.
+### 1. Initialization
+Create an instance of the `LFPDataAnalysis` class:
+```matlab
+lfp = LFPDataAnalysis();
 
-## Repository Structure
-- `Katarina_clean2_same_scale.m`: Main script for LFP analysis.
-- `README.md`: Documentation for the repository.
-- `example_data/` (optional): Placeholder for example `.mat` files.
+### 2. Preprocessing Data
+Preprocess the data using the preprocessData method:
+```matlab
+lfp = lfp.preprocessData();
 
-## Contributing
-Contributions are welcome! If you encounter issues or have suggestions for improvement:
-- Open an issue.
-- Submit a pull request with your changes.
+### 3. Visualization
+Visualize the data using the plotData method:
+```matlab
+lfp.plotData();
+
+## Proeprties
+
+### Public Properties
+- secs_to_plot: Duration of plot in seconds.
+- clim1, clim2: Limits for the spectrogram of channel 2.
+- clim3, clim4: Limits for the spectrogram of channel 1.
+- lg: Boolean to enable or disable logarithmic scaling.
+- fieldtrip_path: Path to the FieldTrip toolbox.
+- data_source: Path to the .mat files containing LFP data.
+- signals: Names of the channels to process.
+- fsample_hz: Sampling frequency in Hz.
+- freq_hz: Maximum frequency for analysis in Hz.
+- channel_names: Names of the channels.
+- info: Description of the data.
+- segment_length_s: Length of data segments in seconds.
+- overlap: Overlap between data segments (fraction).
+- hp_cutoff_hz: High-pass filter cutoff frequency in Hz.
+- lp_cutoff_hz: Low-pass filter cutoff frequency in Hz.
+- bs_freq_hz: Bandstop filter frequency range in Hz.
+- spectral_window_s: Spectral analysis window length in seconds.
+- smoothing_frequency_hz: Smoothing frequency for spectral analysis in Hz.
+- power_frequency_range_hz: Frequency range for power analysis in Hz.
+- spectrogram_xlim_low_hz, spectrogram_xlim_high_hz: Limits for x-axis in spectrogram plots.
+
+### Protected Properties
+- data: Processed data structure.
+- combined_data: Combined data from all channels.
+- ch1_data, ch2_data: Data for individual channels.
+
+## Methods
+
+###Public Methods
+- LFPDataAnalysis: Constructor to initialize the class and load data.
+- preprocessData: Preprocesses the LFP data (segmentation and filtering).
+- plotData: Visualizes the LFP data.
+
+### Protected Methods
+- loadData: Loads LFP data from .mat files.
+- performSpectralPowerAnalysis: Performs spectral analysis for a specific data segment.
+- plotChannel: Helper function to plot individual channel data (raw, spectrogram, and relative power).
 
 ## Acknowledgments
 This script utilizes the FieldTrip toolbox for LFP analysis. Thanks to the FieldTrip development team for providing tools that enhance neuroscience research.
